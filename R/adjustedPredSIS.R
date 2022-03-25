@@ -205,11 +205,11 @@ threshold <-
     n <- nrow(df_adjusted_confirmed_values);
     df_adjusted_confirmed_values <- df_confirmed_values;
     for (i in 1:n) {
-      if(C_metric(bound_metric,df_confirmed_values,i)[1] == "Not possible"){
+      if(C_metric(bound_metric,df_adjusted_confirmed_values,i)[1] == "Not possible"){
         next;
       }
       else{
-        cval = C_metric(bound_metric,df_confirmed_values,i);
+        cval = C_metric(bound_metric,df_adjusted_confirmed_values,i);
         mean = as.numeric(cval[1]);
         sd = as.numeric(cval[2]);
         limit = as.numeric(cval[3]);
@@ -222,10 +222,10 @@ threshold <-
       else{
         #calculate number of consecutive days outside CI
         t = i+1
-        metric_val = C_metric(bound_metric,df_confirmed_values,t)[4];
+        metric_val = C_metric(bound_metric,df_adjusted_confirmed_values,t)[4];
         while((t <= n) && (metric_val > limit || metric_val < (-1*limit))){
           t <- t+1
-          metric_val = C_metric(bound_metric,df_confirmed_values,t)[4]
+          metric_val = C_metric(bound_metric,df_adjusted_confirmed_values,t)[4]
         }
         # length of interval outside of CI
         length_of_jd = t - i
@@ -247,6 +247,7 @@ threshold <-
     }
     return( df_adjusted_confirmed_values );
   }
+
 
 #' plots graph of daily cases with and without adjustment
 #' @description Visual representation of the adjustments made using a given metric.
@@ -356,12 +357,13 @@ sisd_cummulative<-
     if(adjusted){
       df_adjusted_confirmed_values = threshold(ub_for_adjustment, bound_metric, df_confirmed_values);
       #print adjustments made by given metric
-      print(plot_adjustment(df_confirmed_values, df_adjusted))
-      #create copy of data without adjustments
+      print(plot_adjustment(df_confirmed_values, df_adjusted_confirmed_values))
+
+      #make adjustments in data
       original_data <- data
-      j <- cur_day-last_limit;
+      j <- cur_day-last_limit-last_n_day;
       ran <- 3*cur_day
-      ran_limit <- 3*(cur_day-last_limit-1);
+      ran_limit <- 3*(cur_day-last_limit-last_n_day-1);
       for (i in ran_limit:ran){
         if (data[i,1] == 'Confirmed' && data[i,2] == df_adjusted_confirmed_values[j,1]){
           data[i,3] <- df_adjusted_confirmed_values[j,2]
@@ -848,17 +850,17 @@ plot_cumulative <- function(output_original, output_adjusted){
 #' @export
 
 compare_results <- function(population=18710922,
-                              gamma=1 / 14.0,
-                              cur_day=100,
-                              start_date="2020-3-13",
-                              last_n_day=20,
-                              last_limit=30,
-                              next_n_days=20,
-                              data,
-                              ub_for_adjustment=5,
-                              bound_metric='C3_1day',
-                              df_confirmed_values,
-                              mu){
+                            gamma=1 / 14.0,
+                            cur_day=400,
+                            start_date="2020-3-13",
+                            last_n_day=20,
+                            last_limit=30,
+                            next_n_days=20,
+                            data,
+                            ub_for_adjustment=5,
+                            bound_metric='C3_1day',
+                            df_confirmed_values,
+                            mu){
   writeLines("without adjustment")
   output_original <-sisd_cummulative(population, gamma, cur_day, start_date, last_n_day, last_limit, next_n_days, state_data, 0L, ub_for_adjustment,bound_metric, df_confirmed_values)
   writeLines("\nwith adjustment")
@@ -879,4 +881,3 @@ compare_results <- function(population=18710922,
   }
 
 }
-
