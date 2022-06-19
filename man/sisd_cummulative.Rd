@@ -7,7 +7,7 @@
 sisd_cummulative(
   population = 18710922,
   gamma = 1/14,
-  cur_day = 447,
+  cur_date = "2020-5-29",
   start_date = "2020-3-13",
   last_n_day = 20,
   last_limit = 30,
@@ -25,7 +25,7 @@ sisd_cummulative(
 
 \item{gamma}{recovery rate}
 
-\item{cur_day}{current day number for start of prediction phase}
+\item{cur_date}{current date for start of prediction phase}
 
 \item{start_date}{start date in the considered dataset}
 

@@ -105,7 +105,7 @@ C3 <-
         mean = as.numeric(c2val[1]);
         sd = as.numeric(c2val[2]);
         c2 = as.numeric(c2val[3]);
-        metric_val <- metric_val+ max(0,c2-1);
+        metric_val <- metric_val+ max(0,abs(c2)-1);
       }
     }
     return (list(mean, sd, metric_val));
@@ -132,7 +132,7 @@ C3_1day <-
         mean = as.numeric(c2val[1]);
         sd = as.numeric(c2val[2]);
         c2 = as.numeric(c2val[3]);
-        metric_val <- metric_val+ max(0,c2-1);
+        metric_val <- metric_val+ max(0,abs(c2)-1);
       }
     }
     return (list(mean, sd, metric_val));
@@ -202,8 +202,9 @@ threshold <-
            df_confirmed_values
   ) {
 
-    n <- nrow(df_adjusted_confirmed_values);
+
     df_adjusted_confirmed_values <- df_confirmed_values;
+    n <- nrow(df_adjusted_confirmed_values);
     for (i in 1:n) {
       if(C_metric(bound_metric,df_adjusted_confirmed_values,i)[1] == "Not possible"){
         next;
@@ -304,7 +305,7 @@ plot_adjustment <- function(df_confirmed_values,df_adjusted_confirmed_values){
 #' @description Prediction of Cumulative number of cases using data driven modified SIS model
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_day current day number for start of prediction phase
+#' @param cur_date current date for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
@@ -335,7 +336,7 @@ plot_adjustment <- function(df_confirmed_values,df_adjusted_confirmed_values){
 sisd_cummulative<-
   function(population=18710922,
            gamma=1 / 14.0,
-           cur_day=447,
+           cur_date="2020-5-29",
            start_date="2020-3-13",
            last_n_day=20,
            last_limit=30,
@@ -352,7 +353,8 @@ sisd_cummulative<-
     mu_step = 0.001
     validation_period <- last_n_day
     Count <- Type <- Date <- NULL;
-
+    cur_day = as.numeric(difftime(cur_date, start_date, units="days"))
+    print(cur_day)
     #Adjusting values of confirmed cases (for last_limit days before cur_day)
     if(adjusted){
       df_adjusted_confirmed_values = threshold(ub_for_adjustment, bound_metric, df_confirmed_values);
@@ -718,7 +720,7 @@ sisd_cummulative<-
       opt_col <- '#006600'
       col <- '#ff3300'
     }
-
+    # print(df)
     p <-
       ggplot(df, aes(
         x = Date,
@@ -739,6 +741,10 @@ sisd_cummulative<-
 #' @description Provides a visual comparison between predictions made with and without the adjustments and the observed number of cases.
 #' @param output_original output of sisd_cummulative for original state-wise data
 #' @param output_adjusted output of sisd_cummulative for adjusted state-wise data
+#' @importFrom ggplot2 element_blank
+#' @importFrom ggplot2 unit
+#' @importFrom ggplot2 guides
+#' @importFrom ggplot2 guide_legend
 #' @return Returns graph showing observed, trained and predicted values for both original and adjusted data
 #' @note This function is called in "compare_results"
 #' @export
@@ -818,6 +824,7 @@ plot_cumulative <- function(output_original, output_adjusted){
   }
 
   df = transform(df, Count = as.numeric(Count))
+
   p <-
     ggplot(df, aes(
       x = Date,
@@ -826,8 +833,10 @@ plot_cumulative <- function(output_original, output_adjusted){
       color = Type
     )) + geom_point(size = 2) + scale_shape_manual(values = c(3, 16, 16, 17,17)) + scale_color_manual(values = c('#000000', '#cc33ff', '#006600', '#0033cc','#ff3300'))
   p <-
-    p + scale_x_date(date_breaks = "10 day") + labs(y = "Cumulative Number of Cases", x = "Date") + ggtitle("Daily cases with/without adjustment") +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
+    p +scale_x_date(date_breaks = "10 day") + labs(y = "Cumulative Number of Cases", x = "Date") +
+    theme(text = element_text(size=14.5),axis.text.x = element_text(angle = 35, hjust = 1), legend.title = element_blank(), legend.text = element_text(size=13), legend.key.size = unit(2, 'mm'), legend.position = "bottom") +
+    guides(shape = guide_legend(nrow = 2, byrow = TRUE))
+
   return (p)
 }
 
@@ -835,7 +844,7 @@ plot_cumulative <- function(output_original, output_adjusted){
 #' @description Compares the validation rmse using original and adjusted data and returns the one with lesser error.
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_day current day number for start of prediction phase
+#' @param cur_date current date for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
@@ -851,7 +860,7 @@ plot_cumulative <- function(output_original, output_adjusted){
 
 compare_results <- function(population=18710922,
                             gamma=1 / 14.0,
-                            cur_day=400,
+                            cur_date="2020-5-29",
                             start_date="2020-3-13",
                             last_n_day=20,
                             last_limit=30,
@@ -861,10 +870,11 @@ compare_results <- function(population=18710922,
                             bound_metric='C3_1day',
                             df_confirmed_values,
                             mu){
+
   writeLines("without adjustment")
-  output_original <-sisd_cummulative(population, gamma, cur_day, start_date, last_n_day, last_limit, next_n_days, state_data, 0L, ub_for_adjustment,bound_metric, df_confirmed_values)
+  output_original <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data , 0L, ub_for_adjustment,bound_metric, df_confirmed_values)
   writeLines("\nwith adjustment")
-  output_adjusted <-sisd_cummulative(population, gamma, cur_day, start_date, last_n_day, last_limit, next_n_days, state_data, 1L, ub_for_adjustment,bound_metric, df_confirmed_values)
+  output_adjusted <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data, 1L, ub_for_adjustment,bound_metric, df_confirmed_values)
   print(plot_cumulative(output_original, output_adjusted))
 
   val_original <- output_original[4][[1]]
@@ -872,12 +882,14 @@ compare_results <- function(population=18710922,
   if(as.double(val_adjusted) < as.double(val_original))
   {
     writeLines("Consider Adjusted Data")
-    return (list(output_adjusted[1],output_adjusted[3][[1]],output_adjusted[4][[1]]))
+    print(output_adjusted[1])
+    return (list(output_adjusted[1], output_adjusted[3][[1]],output_adjusted[4][[1]]))
   }
   else
   {
     writeLines("Consider Original Data")
-    return (list(output_original[1],output_original[3][[1]],output_original[4][[1]]))
+    print(output_original[1])
+    return (list(output_original[1], output_original[3][[1]],output_original[4][[1]]))
   }
 
 }
