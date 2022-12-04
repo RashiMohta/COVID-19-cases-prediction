@@ -1,3 +1,5 @@
+
+
 #' Calculates the mean, standard deviation and C1 metric value
 #' @description The C1 uses moving sample average and sample standard deviation
 #' to standardize each observation. It calculates the sample average and
@@ -155,27 +157,27 @@ C_metric<-
       limit <- 3
       c = C1(df,t)
     }
-
+    
     if (bound_metric == 'C2') {
       limit <- 3
       c = C2(df,t)
     }
-
+    
     if (bound_metric == 'C2_1day') {
       limit <- 3
       c = C2_1day(df,t)
     }
-
+    
     if (bound_metric == 'C3') {
       limit <- 2
       c = C3(df,t)
     }
-
+    
     if (bound_metric == 'C3_1day') {
       limit <- 2
       c = C3_1day(df,t)
     }
-
+    
     if (c[1] == 'Not possible') {
       return (list("Not possible", "Not possible", "Not possible", "Not possible"));
     }
@@ -199,12 +201,13 @@ C_metric<-
 threshold <-
   function(ub_for_adjustment,
            bound_metric,
-           df_confirmed_values
+           df_confirmed_values,
+           method
   ) {
-
-
     df_adjusted_confirmed_values <- df_confirmed_values;
     n <- nrow(df_adjusted_confirmed_values);
+    df_adjusted_confirmed_values$adjusted <- rep(0,n)
+    
     for (i in 1:n) {
       if(C_metric(bound_metric,df_adjusted_confirmed_values,i)[1] == "Not possible"){
         next;
@@ -234,18 +237,97 @@ threshold <-
         #if such number of days are more than these many days, then do not adjust
         #else adjust data with averages
         if(length_of_jd <= ub_for_adjustment){
-          if( t <= n  ){
-            for ( a in 1:length_of_jd )
-              df_adjusted_confirmed_values[i+a-1,2] = mean/2 + df_confirmed_values[t,2]/2
+          if( strcmp(method, 'percentile') )
+          {
+            data <- df_adjusted_confirmed_values[(i):(t-1),2];
+            if( bound_metric == 'C1' )
+            {
+              data <- append( data, df_adjusted_confirmed_values[(i-7):(i-1),2] );
+              tenth_percentile <- quantile(data, probs = 0.1, na.rm = TRUE );
+              nintieth_percentile <- quantile(data, probs = 0.9, na.rm = TRUE );
+            }
+            if( bound_metric == 'C2' )
+            {
+              data <- append( data, df_adjusted_confirmed_values[(i-9):(i-3),2] );
+              tenth_percentile <- quantile(data, probs = 0.1, na.rm = TRUE );
+              nintieth_percentile <- quantile(data, probs = 0.9, na.rm = TRUE );
+            }
+            if( bound_metric == 'C2_1day' )
+            {
+              data <- append( data, df_adjusted_confirmed_values[(i-8):(i-2),2] );
+              tenth_percentile <- quantile(data, probs = 0.1, na.rm = TRUE );
+              nintieth_percentile <- quantile(data, probs = 0.9, na.rm = TRUE );
+            }
+            if( bound_metric == 'C3' )
+            {
+              data <- append( data, df_adjusted_confirmed_values[(i-11):(i-3),2] );
+              tenth_percentile <- quantile(data, probs = 0.1, na.rm = TRUE );
+              nintieth_percentile <- quantile(data, probs = 0.9, na.rm = TRUE );
+            }
+            if( bound_metric == 'C3_1day' )
+            {
+              data <- append( data, df_adjusted_confirmed_values[(i-10):(i-2),2] );
+              tenth_percentile <- quantile(data, probs = 0.1, na.rm = TRUE );
+              nintieth_percentile <- quantile(data, probs = 0.9, na.rm = TRUE );
+            }
+            for ( a in 1:length_of_jd ){
+              if( df_confirmed_values[i+a-1,2] < tenth_percentile ){
+                df_adjusted_confirmed_values[i+a-1,2] = tenth_percentile
+                df_adjusted_confirmed_values[i+a-1,3] = 1; 
+              }
+              else if( df_confirmed_values[i+a-1,2] > nintieth_percentile ){
+                df_adjusted_confirmed_values[i+a-1,2] = nintieth_percentile
+                df_adjusted_confirmed_values[i+a-1,3] = 1;
+              }
+            }
           }
-          else{
-            for ( a in 1:length_of_jd )
-              df_adjusted_confirmed_values[i+a-1,2] = mean
+          else if(strcmp(method, 'linear interpolation'))
+          {
+            if(t<=n)
+            {
+              slope = (df_confirmed_values[t,2]-df_adjusted_confirmed_values[i-1,2])/(t-i+1);
+              for ( a in 1:length_of_jd ){
+                df_adjusted_confirmed_values[i+a-1,2] = df_adjusted_confirmed_values[i-1,2] + slope*a
+                df_adjusted_confirmed_values[i+a-1,3] = 1;
+              }
+            }
+          }
+          else if( strcmp(method, 'end points mean') )
+          {
+            if(t<=n)
+            {
+              for ( a in 1:length_of_jd ){
+                df_adjusted_confirmed_values[i+a-1,2] = (df_adjusted_confirmed_values[i-1,2] + df_confirmed_values[t,2])/2
+                df_adjusted_confirmed_values[i+a-1,3] = 1
+              }
+            }
+            else
+            {
+              for ( a in 1:length_of_jd ){
+                df_adjusted_confirmed_values[i+a-1,2] = df_adjusted_confirmed_values[i-1,2];
+                df_adjusted_confirmed_values[i+a-1,3] = 1;
+              }
+            }
+          }
+          else 
+          {
+            if( t <= n  ){
+              for ( a in 1:length_of_jd ){
+                df_adjusted_confirmed_values[i+a-1,2] = mean/2 + df_confirmed_values[t,2]/2
+                df_adjusted_confirmed_values[i+a-1,3] = 1
+              }
+            }
+            else{
+              for ( a in 1:length_of_jd ){
+                df_adjusted_confirmed_values[i+a-1,2] = mean
+                df_adjusted_confirmed_values[i+a-1,3] = 1; 
+              }
+            } 
           }
         }
-
       }
     }
+    
     return( df_adjusted_confirmed_values );
   }
 
@@ -305,7 +387,7 @@ plot_adjustment <- function(df_confirmed_values,df_adjusted_confirmed_values){
 #' @description Prediction of Cumulative number of cases using data driven modified SIS model
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_date current date for start of prediction phase
+#' @param cur_day current day number for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
@@ -344,8 +426,9 @@ sisd_cummulative<-
            data,
            adjusted=0L,
            ub_for_adjustment=5,
-           bound_metric='C3_1day',
+           bound_metric='C3',
            df_confirmed_values,
+           method = 'mean',
            mu) {
 
     min_mu = 0.001
@@ -357,7 +440,7 @@ sisd_cummulative<-
     print(cur_day)
     #Adjusting values of confirmed cases (for last_limit days before cur_day)
     if(adjusted){
-      df_adjusted_confirmed_values = threshold(ub_for_adjustment, bound_metric, df_confirmed_values);
+      df_adjusted_confirmed_values = threshold(ub_for_adjustment, bound_metric, df_confirmed_values, method);
       #print adjustments made by given metric
       print(plot_adjustment(df_confirmed_values, df_adjusted_confirmed_values))
 
@@ -366,12 +449,17 @@ sisd_cummulative<-
       j <- cur_day-last_limit-last_n_day;
       ran <- 3*cur_day
       ran_limit <- 3*(cur_day-last_limit-last_n_day-1);
+      ct <- 0;
       for (i in ran_limit:ran){
         if (data[i,1] == 'Confirmed' && data[i,2] == df_adjusted_confirmed_values[j,1]){
           data[i,3] <- df_adjusted_confirmed_values[j,2]
+          ct <- ct + df_adjusted_confirmed_values[j,3];
           j <- j+1
         }
       }
+      print(paste("Method to detect outliers:", bound_metric))
+      print(paste("Method to adjust outliers:", method))
+      print(paste("No of outliers in training period:", ct));
     }
 
     if (!missing(mu)) {
@@ -720,7 +808,7 @@ sisd_cummulative<-
       opt_col <- '#006600'
       col <- '#ff3300'
     }
-    # print(df)
+   # print(df)
     p <-
       ggplot(df, aes(
         x = Date,
@@ -741,10 +829,6 @@ sisd_cummulative<-
 #' @description Provides a visual comparison between predictions made with and without the adjustments and the observed number of cases.
 #' @param output_original output of sisd_cummulative for original state-wise data
 #' @param output_adjusted output of sisd_cummulative for adjusted state-wise data
-#' @importFrom ggplot2 element_blank
-#' @importFrom ggplot2 unit
-#' @importFrom ggplot2 guides
-#' @importFrom ggplot2 guide_legend
 #' @return Returns graph showing observed, trained and predicted values for both original and adjusted data
 #' @note This function is called in "compare_results"
 #' @export
@@ -844,7 +928,7 @@ plot_cumulative <- function(output_original, output_adjusted){
 #' @description Compares the validation rmse using original and adjusted data and returns the one with lesser error.
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_date current date for start of prediction phase
+#' @param cur_day current day number for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
@@ -869,12 +953,13 @@ compare_results <- function(population=18710922,
                             ub_for_adjustment=5,
                             bound_metric='C3_1day',
                             df_confirmed_values,
+                            method = 'mean',
                             mu){
 
   writeLines("without adjustment")
-  output_original <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data , 0L, ub_for_adjustment,bound_metric, df_confirmed_values)
+  output_original <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data , 0L, ub_for_adjustment,bound_metric, df_confirmed_values, method)
   writeLines("\nwith adjustment")
-  output_adjusted <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data, 1L, ub_for_adjustment,bound_metric, df_confirmed_values)
+  output_adjusted <-sisd_cummulative(population, gamma, cur_date, start_date, last_n_day, last_limit, next_n_days, data, 1L, ub_for_adjustment,bound_metric, df_confirmed_values, method)
   print(plot_cumulative(output_original, output_adjusted))
 
   val_original <- output_original[4][[1]]
@@ -891,5 +976,4 @@ compare_results <- function(population=18710922,
     print(output_original[1])
     return (list(output_original[1], output_original[3][[1]],output_original[4][[1]]))
   }
-
 }
