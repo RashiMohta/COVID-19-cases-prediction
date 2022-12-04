@@ -387,7 +387,7 @@ plot_adjustment <- function(df_confirmed_values,df_adjusted_confirmed_values){
 #' @description Prediction of Cumulative number of cases using data driven modified SIS model
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_day current day number for start of prediction phase
+#' @param cur_date current date for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
@@ -928,7 +928,7 @@ plot_cumulative <- function(output_original, output_adjusted){
 #' @description Compares the validation rmse using original and adjusted data and returns the one with lesser error.
 #' @param population number of people in the state
 #' @param gamma recovery rate
-#' @param cur_day current day number for start of prediction phase
+#' @param cur_date current date for start of prediction phase
 #' @param start_date start date in the considered dataset
 #' @param last_n_day number of days in training phase
 #' @param last_limit maximum number of days in the validation period
