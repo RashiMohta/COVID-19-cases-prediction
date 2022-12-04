@@ -426,7 +426,7 @@ sisd_cummulative<-
            data,
            adjusted=0L,
            ub_for_adjustment=5,
-           bound_metric='C3',
+           bound_metric='C3_1day',
            df_confirmed_values,
            method = 'mean',
            mu) {
